@@ -43,17 +43,23 @@ class SY_Apiriori():
 
         return df
 
-    # TODO
     def filter_orders_containing_all_of_given_items(self, ls_items_to_find):
-        df_filtered = self.filter_orders_containing_any_of_given_items(ls_items_to_find)
+        # df_filtered = self.filter_orders_containing_any_of_given_items(ls_items_to_find)
 
-        grp = df_filtered.groupby(['Product'])
-        # Filter rows containing all the values in column 'B'
-        grouped = df[df['B'].isin(values_to_filter)].groupby('A')
-        filtered_df = pd.concat(
-            [group for _, group in grouped if all(value in group['B'].values for value in values_to_filter)])
+        df = self.df
 
-        return df_filtered
+        def contains_all_items(group):
+            return all(item in group['Product'].values for item in ls_items_to_find)
+
+        # Filter rows containing all the items in column 'Product'
+        filtered_groups = df[df['Product'].isin(ls_items_to_find)].groupby('Order ID').apply(
+            lambda x: x if contains_all_items(x) else None)
+        filtered_df = pd.concat([group for group in filtered_groups if isinstance(group, pd.DataFrame)],
+                                ignore_index=True)
+
+        print(filtered_df)
+
+        return filtered_groups
 
 
 
