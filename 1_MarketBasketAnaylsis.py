@@ -72,6 +72,8 @@ class SY_Apiriori():
         return count_filteredOrders/count_allOrds
 
 
+
+
 sy = SY_Apiriori()
 df = sy.df
 
