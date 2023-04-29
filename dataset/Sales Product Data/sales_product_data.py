@@ -13,13 +13,17 @@ for file in csv_files:
     # Extract the month name from the file name and add a YYYY-mm column
     month_name = file.split('_')[1]
     df['YYYY-mm'] = f'2019-{pd.to_datetime(month_name, format="%B").month:02d}'
+    # Convert the 'YYYY-mm' column to a datetime object
+    df['date'] = pd.to_datetime(df['YYYY-mm'], format='%Y-%m')
 
-    # Append the DataFrame to the list
-    all_dataframes.append(df)
+    # Check pandas version
+    df['week'] = df['date'].dt.isocalendar().week
 
 # Concatenate all DataFrames
 combined_df = pd.concat(all_dataframes, ignore_index=True)
 combined_df = combined_df.sort_values(by='YYYY-mm')
+
+
 
 # Save the concatenated DataFrame as a CSV file
 combined_df.to_csv('Sales_total_2019.csv', index=False)
