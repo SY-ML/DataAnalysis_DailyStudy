@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, association_rules
@@ -5,15 +6,15 @@ from mlxtend.frequent_patterns import apriori, association_rules
 class SY_Apiriori():
     def __init__(self):
         self.df = self.load_dataset()
-        # self.generate_apiriori_result_by_mlxtend()
+        # self.generate_apiriori_result_by_mlxtend(df = self.df)
         self.result_mlxtend = pd.read_csv("1_MarketBasketAnalysis_Apiriori_by_mlxtend.csv")
     def load_dataset(self):
         df = pd.read_csv("./dataset/Sales Product Data/Sales_April_2019.csv")
         df = df[['Order ID', 'Product', 'Quantity Ordered']]
         df = df.dropna(axis=0)
         return df
-    def generate_apiriori_result_by_mlxtend(self):
-        df = self.df.copy()
+    def generate_apiriori_result_by_mlxtend(self, df):
+        # df = self.df.copy()
         # Group by 'Order ID' and aggregate 'Product' as lists
         transaction_groups = df.groupby('Order ID')['Product'].apply(list)
 
@@ -73,6 +74,22 @@ class SY_Apiriori():
 
 
 
+# Get all the CSV files in the current directory
+relative_path = os.path.join('dataset', 'Sales Product Data')
+csv_files = [file for file in os.listdir(relative_path) if file.endswith('.csv') and file.startswith('Sales_')]
+print(csv_files)
+exit()
+# Read each CSV file, add a YYYY-mm column, and concatenate them
+all_dataframes = []
+for file in csv_files:
+    # Read the CSV file
+    df = pd.read_csv(file)
+
+    # Extract the month name from the file name and add a YYYY-mm column
+    month_name = file.split('_')[1]
+    df['YYYY-mm'] = f'2019-{pd.to_datetime(month_name, format="%B").month:02d}'
+
+    print(df)
 
 sy = SY_Apiriori()
 df = sy.df
@@ -80,14 +97,5 @@ df = sy.df
 a = sy.filter_orders_containing_all_of_given_items(['Lightning Charging Cable', 'Wired Headphones'])
 print(a)
 
-# a = sy.get_support_of_selected_item(['Lightning Charging Cable'])
-# b = sy.get_support_of_selected_item(['Wired Headphones'])
-# c = sy.get_support_of_selected_item(['Lightning Charging Cable', 'Wired Headphones'])
-# d = a*b
-#
-# print(a, b, c, d)
-#
-#
-#
-#
 
+# TODOs- Get support by month, visualization, Validation

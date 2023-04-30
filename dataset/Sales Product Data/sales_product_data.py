@@ -10,20 +10,24 @@ for file in csv_files:
     # Read the CSV file
     df = pd.read_csv(file)
 
-    # Extract the month name from the file name and add a YYYY-mm column
-    month_name = file.split('_')[1]
-    df['YYYY-mm'] = f'2019-{pd.to_datetime(month_name, format="%B").month:02d}'
-    # Convert the 'YYYY-mm' column to a datetime object
-    df['date'] = pd.to_datetime(df['YYYY-mm'], format='%Y-%m')
+    # Convert the 'Order Date' column to a datetime object
+    df['Order Date'] = pd.to_datetime(df['Order Date'], format='%m/%d/%y %H:%M', errors='coerce')
+
+    # Drop rows with missing 'Order Date' values
+    df = df.dropna(subset=['Order Date'])
+
+    # Extract the month and year from the 'Order Date' column and add a YYYY-mm column
+    df['YYYY-mm'] = df['Order Date'].dt.strftime('%Y-%m')
 
     # Check pandas version
-    df['week'] = df['date'].dt.isocalendar().week
+    df['week'] = df['Order Date'].dt.isocalendar().week
+
+    # Append the DataFrame to the list
+    all_dataframes.append(df)
 
 # Concatenate all DataFrames
 combined_df = pd.concat(all_dataframes, ignore_index=True)
-combined_df = combined_df.sort_values(by='YYYY-mm')
-
-
+combined_df = combined_df.sort_values(by='Order Date')
 
 # Save the concatenated DataFrame as a CSV file
 combined_df.to_csv('Sales_total_2019.csv', index=False)
