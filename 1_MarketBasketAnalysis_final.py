@@ -100,17 +100,38 @@ def main():
     combined_df = ds.df
     apriori_results_path = apr.apriori_results_path
 
+    # Create 'Weekly top 80 frequent Skus data' folder
+    frequent_skus_path = './dataset/Weekly top 80 frequent Skus data'
+    os.makedirs(frequent_skus_path, exist_ok=True)
+
     weeks = combined_df['Week of the Year'].unique()
     all_apriori_results = []
 
     for week in weeks:
         weekly_data = combined_df[combined_df['Week of the Year'] == week]
-        rules = apr.perform_apriori_algorithm(weekly_data)
+
+        # Calculate product count of order ID and order appearance proportion
+        product_count = weekly_data.groupby('Product')['Order ID'].nunique().reset_index()
+        product_count.columns = ['Product', 'Count']
+        product_count['Proportion'] = product_count['Count'] / weekly_data['Order ID'].nunique()
+
+        # Filter products that take up 80% of order frequency
+        product_count_sorted = product_count.sort_values(by='Count', ascending=False)
+        product_count_sorted['Cumulative Proportion'] = product_count_sorted['Proportion'].cumsum()
+        filtered_products = product_count_sorted[product_count_sorted['Cumulative Proportion'] <= 0.8]
+
+        # Filter the weekly_data for the products in filtered_products
+        filtered_weekly_data = weekly_data[weekly_data['Product'].isin(filtered_products['Product'])]
+
+        # Save the filtered_weekly_data to the new folder
+        filtered_weekly_data.to_csv(f'{frequent_skus_path}/High 80 pct Frequent Sku Data_{week}.csv', index=False)
+
+        rules = apr.perform_apriori_algorithm(filtered_weekly_data)
         rules['Week of the Year'] = week
         all_apriori_results.append(rules)
         rules.to_csv(f'{apriori_results_path}/AprioriResult_week_{week}.csv', index=False)
 
-        # Define apriori_files
+    # Define apriori_files
     apriori_files = [file for file in os.listdir(apriori_results_path) if
                      file.endswith('.csv') and file.startswith('AprioriResult_')]
 
@@ -127,6 +148,7 @@ def main():
 
     Plotting.plot_distribution(final_df)
     Plotting.plot_network_graph(final_df)
+
 
 if __name__ == '__main__':
     main()
