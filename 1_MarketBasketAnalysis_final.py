@@ -149,6 +149,40 @@ def main():
     Plotting.plot_distribution(final_df)
     Plotting.plot_network_graph(final_df)
 
+def plot_sku_order_count(df):
+    plt.figure(figsize=(12, 8))
+    sns.barplot(x='Product', y='Count', data=df)
+    plt.xticks(rotation=90)
+    plt.xlabel('SKU')
+    plt.ylabel('Order Count')
+    plt.title('Top 80% Frequent SKUs by Order Count')
+    plt.show()
+
+
+def combine_and_plot_frequent_skus(frequent_skus_path):
+    frequent_sku_files = [file for file in os.listdir(frequent_skus_path) if
+                          file.endswith('.csv') and file.startswith('High 80 pct Frequent Sku Data_')]
+
+    all_frequent_sku_data = []
+
+    for file in frequent_sku_files:
+        df = pd.read_csv(os.path.join(frequent_skus_path, file))
+        all_frequent_sku_data.append(df)
+
+    combined_frequent_sku_data = pd.concat(all_frequent_sku_data, ignore_index=True)
+
+    # Calculate product count of order ID
+    product_count = combined_frequent_sku_data.groupby('Product')['Order ID'].nunique().reset_index()
+    product_count.columns = ['Product', 'Count']
+
+    # Sort by order count in descending order
+    product_count_sorted = product_count.sort_values(by='Count', ascending=False)
+
+    # Plot the SKUs by their order count
+    plot_sku_order_count(product_count_sorted)
+
 
 if __name__ == '__main__':
     main()
+    frequent_skus_path = './dataset/Weekly top 80 frequent Skus data'
+    combine_and_plot_frequent_skus(frequent_skus_path)
