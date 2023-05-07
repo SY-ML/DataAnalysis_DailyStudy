@@ -3,43 +3,43 @@ import pandas as pd
 import numpy as np
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, association_rules
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import seaborn as sns
-import networkx as nx
+from mpl_toolkits.mplot3d import Axes3D
 
-class SalesDataset():
+
+# Define the SalesDataset class
+class SalesDataset:
     def __init__(self):
         self.df = self.get_combined_data()
 
     def get_combined_data(self):
-        # Read CSV files and combine all the files into one data frame
+        # Define the path for the sales product data
         path = './dataset/Sales Product Data'
         csv_files = [file for file in os.listdir(path) if file.endswith('.csv') and file.startswith('Sales_')]
 
         all_dataframes = []
+
+        # Read all CSV files and store them in a list
         for file in csv_files:
             df = pd.read_csv(os.path.join(path, file))
             df.columns = df.columns.str.strip()  # Strip spaces from column names
             all_dataframes.append(df)
 
+        # Combine all dataframes into one
         combined_df = pd.concat(all_dataframes, ignore_index=True)
-        # Filter out the header rows
         combined_df = combined_df[combined_df['Order Date'] != 'Order Date']
-
-        # Convert 'Order Date' from object to datetime
         combined_df['Order Date'] = pd.to_datetime(combined_df['Order Date'], infer_datetime_format=True)
-
-        # 2. Drop empty rows
         combined_df.dropna(inplace=True)
 
-        # 3. Add week of the year based on values in Order Date
+        # Add week of the year based on values in Order Date
         combined_df['Week of the Year'] = combined_df['Order Date'].dt.isocalendar().week
-
         return combined_df
 
-class AprioriAlgorithm():
+
+# Define the AprioriAlgorithm class
+class AprioriAlgorithm:
     def __init__(self):
-        # Create 'Apriori Result' folder
         self.apriori_results_path = './dataset/Apriori Result'
         os.makedirs(self.apriori_results_path, exist_ok=True)
 
@@ -48,38 +48,35 @@ class AprioriAlgorithm():
         te = TransactionEncoder()
         te_ary = te.fit(transactions).transform(transactions)
         transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
+
+        # Calculate frequent itemsets and association rules
         frequent_itemsets = apriori(transaction_df, min_support=0.001, use_colnames=True)
         rules = association_rules(frequent_itemsets, metric='lift', min_threshold=1)
-
         return rules
 
 
+# Define the Plotting class
 class Plotting:
     @staticmethod
     def plot_3d_scatter(df, week_number):
-        # Convert antecedents and consequents to string format
         df['antecedents'] = df['antecedents'].apply(lambda x: ', '.join(list(x.strip('{}').split(', '))))
         df['consequents'] = df['consequents'].apply(lambda x: ', '.join(list(x.strip('{}').split(', '))))
 
-        # Create a mapping of products to indices for the x and y axis
         unique_products = np.unique(np.concatenate([df['antecedents'].unique(), df['consequents'].unique()]))
         product_mapping = {product: index for index, product in enumerate(unique_products)}
 
-        # Map the antecedents and consequents to their corresponding indices
         df['antecedents_index'] = df['antecedents'].map(product_mapping)
         df['consequents_index'] = df['consequents'].map(product_mapping)
 
-        # Create a 3D scatter plot
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111, projection='3d')
 
-        # Plot the support values
         ax.scatter(df['antecedents_index'], df['consequents_index'], df['support'], c=df['support'], cmap='viridis',
                    s=100)
 
-        # Set the axis labels and title
         ax.set_xlabel('Antecedents')
         ax.set_ylabel('Consequents')
+
         ax.set_zlabel('Support')
         ax.set_title(f'Apriori Results for Week {week_number}')
 
@@ -92,7 +89,6 @@ class Plotting:
         # Show the plot
         plt.show()
 
-
 def main():
     ds = SalesDataset()
     apr = AprioriAlgorithm()
@@ -100,7 +96,6 @@ def main():
     combined_df = ds.df
     apriori_results_path = apr.apriori_results_path
 
-    # Create 'Weekly top 80 frequent Skus data' folder
     frequent_skus_path = './dataset/Weekly top 80 frequent Skus data'
     os.makedirs(frequent_skus_path, exist_ok=True)
 
@@ -110,17 +105,14 @@ def main():
     for week in weeks:
         weekly_data = combined_df[combined_df['Week of the Year'] == week]
 
-        # Calculate product count of order ID and order appearance proportion
         product_count = weekly_data.groupby('Product')['Order ID'].nunique().reset_index()
         product_count.columns = ['Product', 'Count']
         product_count['Proportion'] = product_count['Count'] / weekly_data['Order ID'].nunique()
 
-        # Filter products that take up 80% of order frequency
         product_count_sorted = product_count.sort_values(by='Count', ascending=False)
         product_count_sorted['Cumulative Proportion'] = product_count_sorted['Proportion'].cumsum()
         filtered_products = product_count_sorted[product_count_sorted['Cumulative Proportion'] <= 0.8]
 
-        # Filter the weekly_data for the products in filtered_products
         filtered_weekly_data = weekly_data[weekly_data['Product'].isin(filtered_products['Product'])]
 
         # Save the filtered_weekly_data to the new folder
@@ -131,7 +123,6 @@ def main():
         all_apriori_results.append(rules)
         rules.to_csv(f'{apriori_results_path}/AprioriResult_week_{week}.csv', index=False)
 
-    # Define apriori_files
     apriori_files = [file for file in os.listdir(apriori_results_path) if
                      file.endswith('.csv') and file.startswith('AprioriResult_')]
 
@@ -142,12 +133,7 @@ def main():
         all_apriori_results.append(df)
 
         week_number = file.split("_")[-1].split(".")[0]
-        Plotting.plot_3D_scatter(df, week_number)
-
-    final_df = pd.concat(all_apriori_results, ignore_index=True)
-
-    Plotting.plot_distribution(final_df)
-    Plotting.plot_network_graph(final_df)
+        Plotting.plot_3d_scatter(df, week_number)
 
 def plot_sku_order_count(df):
     plt.figure(figsize=(12, 8))
@@ -157,7 +143,6 @@ def plot_sku_order_count(df):
     plt.ylabel('Order Count')
     plt.title('Top 80% Frequent SKUs by Order Count')
     plt.show()
-
 
 def combine_and_plot_frequent_skus(frequent_skus_path):
     frequent_sku_files = [file for file in os.listdir(frequent_skus_path) if
@@ -174,13 +159,14 @@ def combine_and_plot_frequent_skus(frequent_skus_path):
     # Calculate product count of order ID
     product_count = combined_frequent_sku_data.groupby('Product')['Order ID'].nunique().reset_index()
     product_count.columns = ['Product', 'Count']
+    combined_frequent_sku_data.groupby('Product')['Order ID'].nunique().reset_index()
+    product_count.columns = ['Product', 'Count']
 
     # Sort by order count in descending order
     product_count_sorted = product_count.sort_values(by='Count', ascending=False)
 
     # Plot the SKUs by their order count
     plot_sku_order_count(product_count_sorted)
-
 
 if __name__ == '__main__':
     main()
