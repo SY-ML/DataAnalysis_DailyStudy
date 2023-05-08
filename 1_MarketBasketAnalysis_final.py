@@ -12,6 +12,8 @@ from mpl_toolkits.mplot3d import Axes3D
 class SalesDataset:
     def __init__(self):
         self.df = self.get_combined_data()
+        self.ls_df_basis = [self.add_basis_column(basis) for basis in ['weekly', 'bi-weekly', 'monthly', 'quarterly', 'semi-yearly']]
+        self.df_weekly, self.df_biweekly, self.df_monthly, self.df_quarterly, self.df_semiyearly = self.ls_df_basis
 
     def get_combined_data(self):
         # Define the path for the sales product data
@@ -33,8 +35,24 @@ class SalesDataset:
         combined_df.dropna(inplace=True)
 
         # Add week of the year based on values in Order Date
-        combined_df['Week of the Year'] = combined_df['Order Date'].dt.isocalendar().week
         return combined_df
+
+    def add_basis_column(self, basis):
+        df = self.df
+        if basis == 'weekly':
+            df['Basis'] = df['Date'].dt.strftime('%Y-%U')
+        elif basis == 'bi-weekly':
+            df['Basis'] = df['Date'].dt.year.astype(str) + '-BW' + ((df['Date'].dt.weekofyear + 1) // 2).astype(str)
+        elif basis == 'monthly':
+            df['Basis'] = df['Date'].dt.strftime('%Y-%m')
+        elif basis == 'quarterly':
+            df['Basis'] = df['Date'].dt.to_period('Q').astype(str)
+        elif basis == 'semi-yearly':
+            df['Basis'] = df['Date'].dt.year.astype(str) + '-H' + (df['Date'].dt.to_period('Q') // 2 + 1).astype(str)
+        else:
+            raise ValueError("Invalid basis. Accepted values: 'weekly', 'monthly', 'quarterly', 'semi-yearly'")
+        return df
+
 
 
 # Define the AprioriAlgorithm class
@@ -43,7 +61,7 @@ class AprioriAlgorithm:
         self.apriori_results_path = './dataset/Apriori Result'
         os.makedirs(self.apriori_results_path, exist_ok=True)
 
-    def perform_apriori_algorithm(self, df):
+    def perform_apriori_algorithm(self):
         transactions = df.groupby('Order ID')['Product'].apply(list)
         te = TransactionEncoder()
         te_ary = te.fit(transactions).transform(transactions)
@@ -91,6 +109,8 @@ class Plotting:
 
 def main():
     ds = SalesDataset()
+    print(ds.add_basis_column(basis='weekly'))
+    exit()
     apr = AprioriAlgorithm()
 
     combined_df = ds.df
