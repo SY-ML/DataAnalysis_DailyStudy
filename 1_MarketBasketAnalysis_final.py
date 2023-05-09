@@ -45,17 +45,23 @@ class SalesDataset:
         df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
         df['Day of the week'] = df['Date'].dt.dayofweek
         df['Week of the year'] = df['Date'].dt.isocalendar().week
-        df['Biweekly'] = (df['Date'].dt.weekofyear + 1) // 2
+        df['Biweekly'] = (df['Date'].dt.isocalendar().week+1) // 2
         df['Month'] = df['Date'].dt.month
         df['Quarter'] = df['Date'].dt.quarter
         df['Half'] = (df['Date'].dt.quarter + 1) // 2
         df['Year'] = df['Date'].dt.year
+
+        # Sort data by date
+        df = df.sort_values(by='Date')
 
         path = f'{self.path}/timedata'
         os.makedirs(path, exist_ok=True)
         df.to_csv(f'{path}/time data by date.csv', index=False)
 
         return df
+
+
+
 
     def add_basis_column(self, basis):
         df = self.df.copy()
