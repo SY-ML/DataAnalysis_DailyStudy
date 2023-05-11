@@ -8,95 +8,148 @@ import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
 
 
-# Define the SalesDataset class
-class SalesDataset:
-    def __init__(self):
-        self.path = './dataset/Sales Product Data'
-        self.df = self.get_combined_data()
-        self.ls_date = self.df['Order Date'].unique().tolist()
-        # self.ls_df_basis = [self.add_basis_column(basis) for basis in ['weekly', 'bi-weekly', 'monthly', 'quarterly', 'semi-yearly']]
-        # self.df_weekly, self.df_biweekly, self.df_monthly, self.df_quarterly, self.df_semiyearly = self.ls_df_basis
+## Back to beginning:
 
-    def get_combined_data(self):
-        # Define the path for the sales product data
-        path = self.path
-        csv_files = [file for file in os.listdir(path) if file.endswith('.csv') and file.startswith('Sales_')]
+def read_csv_file_and_preprocess(file_name):
+    # Convert string to date
+    df = pd.read_csv(file_name, parse_dates= ['Order Date'])
 
-        all_dataframes = []
+    # drop rows with nan
+    df.dropna(inplace=True)
 
-        # Read all CSV files and store them in a list
-        for file in csv_files:
-            df = pd.read_csv(os.path.join(path, file))
-            df.columns = df.columns.str.strip()  # Strip spaces from column names
-            all_dataframes.append(df)
+    return df
 
-        # Combine all dataframes into one
-        combined_df = pd.concat(all_dataframes, ignore_index=True)
-        combined_df = combined_df[combined_df['Order Date'] != 'Order Date']
-        combined_df['Order Date'] = pd.to_datetime(combined_df['Order Date'], infer_datetime_format=True).dt.date
-        combined_df.dropna(inplace=True)
-        filtered_df = combined_df[['Order ID', 'Order Date', 'Product']]
+def perform_apriori_algorithm(df, save_as):
+    transactions = df.groupby('Order ID')['Product'].apply(list)
+    te = TransactionEncoder()
+    te_ary = te.fit(transactions).transform(transactions)
+    transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
 
-        # Add week of the year based on values in Order Date
-        return filtered_df
+    # Calculate frequent itemsets and association rules
+    frequent_itemsets = apriori(transaction_df, min_support=0.001, use_colnames=True)
+    rules = association_rules(frequent_itemsets, metric='lift', min_threshold=1)
 
-    def time_columns_by_date(self):
-        df = pd.DataFrame(self.df['Order Date'].unique(), columns = ['Date'])
-        df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
-        df['Day of the week'] = df['Date'].dt.dayofweek
-        df['Week of the year'] = df['Date'].dt.isocalendar().week
-        df['Biweekly'] = (df['Date'].dt.isocalendar().week+1) // 2
-        df['Month'] = df['Date'].dt.month
-        df['Quarter'] = df['Date'].dt.quarter
-        df['Half'] = (df['Date'].dt.quarter + 1) // 2
-        df['Year'] = df['Date'].dt.year
+    return rules
 
-        # Sort data by date
-        df = df.sort_values(by='Date')
+def get_min_support_of_effective_sku(df, cumulative_pct):
+    total_ords = df['Order ID'].nunique()
+    threshold = total_ords * cumulative_pct / 100
 
-        path = f'{self.path}/timedata'
-        os.makedirs(path, exist_ok=True)
-        df.to_csv(f'{path}/time data by date.csv', index=False)
+    # group by 'Product' and count unique 'Order ID'
+    grp = df.groupby('Product')['Order ID'].nunique()
 
-        return df
+    # sort in descending order
+    grp_sorted = grp.sort_values(ascending=False)
+
+    # calculate cumulative sum
+    grp_sorted_cumsum = grp_sorted.cumsum()
+
+    # get the SKUs that account for a certain percentage of total number of orders
+    grp_filtered = grp_sorted[grp_sorted_cumsum <= threshold]
+    print(grp_filtered)
+
+    # return skus
+
+if __name__ == '__main__':
+    df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
+
+
+    get_min_support_of_effective_sku(df, 80)
 
 
 
 
-    def add_basis_column(self, basis):
-        df = self.df.copy()
-        conditions = [
-            basis == 'weekly',
-            basis == 'bi-weekly',
-            basis == 'monthly',
-            basis == 'quarterly',
-            basis == 'semi-yearly'
-        ]
-
-        choices = [
-            df['Order Date'].dt.strftime('%YW%U'),
-            df['Order Date'].dt.year.astype(str) + 'BW' + ((df['Order Date'].dt.weekofyear + 1) // 2).astype(str),
-            df['Order Date'].dt.strftime('%Y%m'),
-            df['Order Date'].dt.to_period('Q').astype(str),
-            df['Order Date'].dt.year.astype(str) + 'H' + ((df['Order Date'].dt.quarter + 1) // 2).astype(str)
-        ]
-
-        df['Basis'] = np.select(conditions, choices, default=None)
-
-        if df['Basis'].isnull().any():
-            raise ValueError(
-                "Invalid basis. Accepted values: 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'semi-yearly'")
-        return df
-
-d = SalesDataset()
-print(d.df['Order Date'])
-print(d.ls_date)
-print(d.time_columns_by_date())
-print(d.time_columns_by_date().dtypes)
-exit()
-for df in d.ls_df_basis:
-    print(df[['Order Date', 'Basis']].head())
-    print(df[['Order Date', 'Basis']].tail())
+#
+#
+# # Define the SalesDataset class
+# class SalesDataset:
+#     def __init__(self):
+#         self.path = './dataset/Sales Product Data'
+#         self.df = self.get_combined_data()
+#         self.ls_date = self.df['Order Date'].unique().tolist()
+#         # self.ls_df_basis = [self.add_basis_column(basis) for basis in ['weekly', 'bi-weekly', 'monthly', 'quarterly', 'semi-yearly']]
+#         # self.df_weekly, self.df_biweekly, self.df_monthly, self.df_quarterly, self.df_semiyearly = self.ls_df_basis
+#
+#     def get_combined_data(self):
+#         # Define the path for the sales product data
+#         path = self.path
+#         csv_files = [file for file in os.listdir(path) if file.endswith('.csv') and file.startswith('Sales_')]
+#
+#         all_dataframes = []
+#
+#         # Read all CSV files and store them in a list
+#         for file in csv_files:
+#             df = pd.read_csv(os.path.join(path, file))
+#             df.columns = df.columns.str.strip()  # Strip spaces from column names
+#             all_dataframes.append(df)
+#
+#         # Combine all dataframes into one
+#         combined_df = pd.concat(all_dataframes, ignore_index=True)
+#         combined_df = combined_df[combined_df['Order Date'] != 'Order Date']
+#         combined_df['Order Date'] = pd.to_datetime(combined_df['Order Date'], infer_datetime_format=True).dt.date
+#         combined_df.dropna(inplace=True)
+#         filtered_df = combined_df[['Order ID', 'Order Date', 'Product']]
+#
+#         # Add week of the year based on values in Order Date
+#         return filtered_df
+#
+#     def time_columns_by_date(self):
+#         df = pd.DataFrame(self.df['Order Date'].unique(), columns = ['Date'])
+#         df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+#         df['Day of the week'] = df['Date'].dt.dayofweek
+#         df['Week of the year'] = df['Date'].dt.isocalendar().week
+#         df['Biweekly'] = (df['Date'].dt.isocalendar().week+1) // 2
+#         df['Month'] = df['Date'].dt.month
+#         df['Quarter'] = df['Date'].dt.quarter
+#         df['Half'] = (df['Date'].dt.quarter + 1) // 2
+#         df['Year'] = df['Date'].dt.year
+#
+#         # Sort data by date
+#         df = df.sort_values(by='Date')
+#
+#         path = f'{self.path}/timedata'
+#         os.makedirs(path, exist_ok=True)
+#         df.to_csv(f'{path}/time data by date.csv', index=False)
+#
+#         return df
+#
+#
+#
+#
+#     def add_basis_column(self, basis):
+#         df = self.df.copy()
+#         conditions = [
+#             basis == 'weekly',
+#             basis == 'bi-weekly',
+#             basis == 'monthly',
+#             basis == 'quarterly',
+#             basis == 'semi-yearly'
+#         ]
+#
+#         choices = [
+#             df['Order Date'].dt.strftime('%YW%U'),
+#             df['Order Date'].dt.year.astype(str) + 'BW' + ((df['Order Date'].dt.weekofyear + 1) // 2).astype(str),
+#             df['Order Date'].dt.strftime('%Y%m'),
+#             df['Order Date'].dt.to_period('Q').astype(str),
+#             df['Order Date'].dt.year.astype(str) + 'H' + ((df['Order Date'].dt.quarter + 1) // 2).astype(str)
+#         ]
+#
+#         df['Basis'] = np.select(conditions, choices, default=None)
+#
+#         if df['Basis'].isnull().any():
+#             raise ValueError(
+#                 "Invalid basis. Accepted values: 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'semi-yearly'")
+#         return df
+#
+# d = SalesDataset()
+# print(d.df['Order Date'])
+# print(d.ls_date)
+# print(d.time_columns_by_date())
+# print(d.time_columns_by_date().dtypes)
+# exit()
+# for df in d.ls_df_basis:
+#     print(df[['Order Date', 'Basis']].head())
+#     print(df[['Order Date', 'Basis']].tail())
 
 
 #
