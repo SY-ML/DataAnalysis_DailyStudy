@@ -38,11 +38,14 @@ def get_min_support_of_effective_sku(df, cumulative_pct):
     # group by 'Product' and count unique 'Order ID'
     grp = df.groupby('Product')['Order ID'].nunique()
 
+    print(grp)
+    exit()
     # sort in descending order
     grp_sorted = grp.sort_values(ascending=False)
 
     # calculate cumulative sum
-    grp_sorted_cumsum = grp_sorted.cumsum()
+    grp_sorted['cumulative_pct'] = grp_sorted
+    grp_sorted_cumsum = grp_sorted.cumsum()/total_ords
 
     # get the SKUs that account for a certain percentage of total number of orders
     grp_filtered = grp_sorted[grp_sorted_cumsum <= threshold]
