@@ -33,31 +33,32 @@ def perform_apriori_algorithm(df, save_as):
 
 def get_min_support_of_effective_sku(df, cumulative_pct):
     total_ords = df['Order ID'].nunique()
-    threshold = total_ords * cumulative_pct / 100
 
     # group by 'Product' and count unique 'Order ID'
     grp = df.groupby('Product')['Order ID'].nunique()
 
-    print(grp)
-    exit()
     # sort in descending order
     grp_sorted = grp.sort_values(ascending=False)
 
-    # calculate cumulative sum
-    grp_sorted['cumulative_pct'] = grp_sorted
-    grp_sorted_cumsum = grp_sorted.cumsum()/total_ords
+    # calculate cumulative sum and convert to percentage
+    grp_sorted_cumsum = grp_sorted.cumsum() / total_ords * 100
 
     # get the SKUs that account for a certain percentage of total number of orders
-    grp_filtered = grp_sorted[grp_sorted_cumsum <= threshold]
-    print(grp_filtered)
+    top_skus = grp_sorted[grp_sorted_cumsum <= cumulative_pct]
 
-    # return skus
+    # calculate the probability of these SKUs
+    top_skus_probability = top_skus / total_ords
+
+    # get the minimum probability
+    min_probability = top_skus_probability.min()
+
+    return min_probability
 
 if __name__ == '__main__':
     df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
 
 
-    get_min_support_of_effective_sku(df, 80)
+    print(get_min_support_of_effective_sku(df, 80))
 
 
 
