@@ -19,17 +19,30 @@ def read_csv_file_and_preprocess(file_name):
 
     return df
 
-def perform_apriori_algorithm(df, save_as):
+def perform_apriori_algorithm(df, min_support, metric, min_thold,  save_as):
     transactions = df.groupby('Order ID')['Product'].apply(list)
     te = TransactionEncoder()
     te_ary = te.fit(transactions).transform(transactions)
     transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
 
     # Calculate frequent itemsets and association rules
-    frequent_itemsets = apriori(transaction_df, min_support=0.001, use_colnames=True)
-    rules = association_rules(frequent_itemsets, metric='lift', min_threshold=1)
+    frequent_itemsets = apriori(transaction_df, min_support=min_support, use_colnames=True)
+    print(f'frequent_itemsets = {frequent_itemsets}')
 
-    return rules
+    # Generate association rules
+    rules = association_rules(frequent_itemsets, metric=metric, min_threshold=min_thold)
+    print(rules)
+    rules_sorted = rules.sort_values(by=['antecedent support'], ascending=False)
+
+    print(rules_sorted)
+
+    # print(f'frequent_itemsets = {frequent_itemsets}')
+    # # rules = association_rules(frequent_itemsets)
+    # rules = association_rules(frequent_itemsets, metric= metric, min_threshold= min_thold)
+    # print(f'rules = {rules}')
+    # rules_sorted = rules.sort_values(by=['antecedent support', 'consequent support', 'support', 'confidence'],ascending=False)
+    rules_sorted.to_csv(f'./{save_as}.csv', index=False)
+
 
 def get_min_support_of_effective_sku(df, cumulative_pct):
     total_ords = df['Order ID'].nunique()
@@ -52,13 +65,19 @@ def get_min_support_of_effective_sku(df, cumulative_pct):
     # get the minimum probability
     min_probability = top_skus_probability.min()
 
+
     return min_probability
 
 if __name__ == '__main__':
-    df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
+    # df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
+    df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_total_2019.csv")
+    thold_eff_sku = get_min_support_of_effective_sku(df, 80)
+    print(f'thold_eff_sku = {thold_eff_sku}')
+    # perform_apriori_algorithm(df = df, min_support= thold_eff_sku, metric='lift', min_thold= 0, save_as='Apriori Result_Apr 2019' )
+    perform_apriori_algorithm(df = df, min_support= thold_eff_sku/10, metric='antecedent support', min_thold= thold_eff_sku, save_as='Apriori Result_Apr 2019' )
 
 
-    print(get_min_support_of_effective_sku(df, 80))
+
 
 
 
