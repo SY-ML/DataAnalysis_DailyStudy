@@ -27,15 +27,20 @@ def perform_apriori_algorithm(df, min_support, metric, min_thold,  save_as):
 
     # Calculate frequent itemsets and association rules
     frequent_itemsets = apriori(transaction_df, min_support=min_support, use_colnames=True)
+    frequent_itemsets = frequent_itemsets.sort_values(by='support', ascending=False)
     print(f'frequent_itemsets = {frequent_itemsets}')
 
     # Generate association rules
     rules = association_rules(frequent_itemsets, metric=metric, min_threshold=min_thold)
     print(rules)
-    rules_sorted = rules.sort_values(by=['antecedent support'], ascending=False)
+
+    # Filter data
+    rules_filtered = rules[rules['antecedent support'] >= min_thold]
+    rules_sorted = rules_filtered.sort_values(by=['antecedent support'], ascending=False)
+
 
     print(rules_sorted)
-
+    # exit()
     # print(f'frequent_itemsets = {frequent_itemsets}')
     # # rules = association_rules(frequent_itemsets)
     # rules = association_rules(frequent_itemsets, metric= metric, min_threshold= min_thold)
