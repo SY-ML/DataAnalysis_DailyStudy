@@ -76,10 +76,14 @@ def get_min_support_of_effective_sku(df, cumulative_pct):
 if __name__ == '__main__':
     # df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
     df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_total_2019.csv")
+    nunique_ord = df['Order ID'].nunique()
+    min_support = 120/nunique_ord
+    print(f'min_support = {min_support}')
+
     thold_eff_sku = get_min_support_of_effective_sku(df, 80)
     print(f'thold_eff_sku = {thold_eff_sku}')
     # perform_apriori_algorithm(df = df, min_support= thold_eff_sku, metric='lift', min_thold= 0, save_as='Apriori Result_Apr 2019' )
-    perform_apriori_algorithm(df = df, min_support= thold_eff_sku/10, metric='antecedent support', min_thold= thold_eff_sku, save_as='Apriori Result_Apr 2019' )
+    perform_apriori_algorithm(df = df, min_support= min_support, metric='antecedent support', min_thold= thold_eff_sku, save_as='Apriori Result_Apr 2019' )
 
 
 
