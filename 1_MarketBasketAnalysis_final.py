@@ -73,6 +73,13 @@ def get_min_support_of_effective_sku(df, cumulative_pct):
 
     return min_probability
 
+def read_apriori_result(load_path):
+    df = pd.read_csv(load_path)
+
+    return df
+
+
+
 if __name__ == '__main__':
     # df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
     df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_total_2019.csv")
