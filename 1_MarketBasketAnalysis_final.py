@@ -7,91 +7,87 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
 
+class MarketBasketAnalysis():
+    def __init__(self, df, col_order, col_sku, col_date, min_order, cumulative_pct):
+        self.df = self.preprocess_dataset(df)
 
-## Back to beginning:
+        self.col_order = col_order
+        self.col_sku = col_sku
+        self.col_date = col_date
 
-def read_csv_file_and_preprocess(file_name):
-    # Convert string to date
-    df = pd.read_csv(file_name, parse_dates= ['Order Date'])
+        #parameters
+        self.cumulative_pct = cumulative_pct
+        self.min_thold = self.get_min_probability_of_effective_sku()
 
-    # drop rows with nan
-    df.dropna(inplace=True)
+        self.nunique_ord = df['Order ID'].nunique()
+        self.min_support = min_order / self.nunique_ord
 
-    return df
-
-def perform_apriori_algorithm(df, min_support, metric, min_thold,  save_as):
-    transactions = df.groupby('Order ID')['Product'].apply(list)
-    te = TransactionEncoder()
-    te_ary = te.fit(transactions).transform(transactions)
-    transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
-
-    # Calculate frequent itemsets and association rules
-    frequent_itemsets = apriori(transaction_df, min_support=min_support, use_colnames=True)
-    frequent_itemsets = frequent_itemsets.sort_values(by='support', ascending=False)
-    print(f'frequent_itemsets = {frequent_itemsets}')
-
-    # Generate association rules
-    rules = association_rules(frequent_itemsets, metric=metric, min_threshold=min_thold)
-    print(rules)
-
-    # Filter data
-    rules_filtered = rules[rules['antecedent support'] >= min_thold]
-    rules_sorted = rules_filtered.sort_values(by=['antecedent support'], ascending=False)
+        # result
+        self.result_apriori = self.perform_apriori_algorithm()
 
 
-    print(rules_sorted)
-    # exit()
-    # print(f'frequent_itemsets = {frequent_itemsets}')
-    # # rules = association_rules(frequent_itemsets)
-    # rules = association_rules(frequent_itemsets, metric= metric, min_threshold= min_thold)
-    # print(f'rules = {rules}')
-    # rules_sorted = rules.sort_values(by=['antecedent support', 'consequent support', 'support', 'confidence'],ascending=False)
-    rules_sorted.to_csv(f'./{save_as}.csv', index=False)
+    ## Back to beginning:
 
+    def preprocess_dataset(self, df):
+        # Convert string to date
+        df = pd.to_datetime(df, infer_datetime_format=True).dt.date
 
-def get_min_support_of_effective_sku(df, cumulative_pct):
-    total_ords = df['Order ID'].nunique()
+        # drop rows with nan
+        df.dropna(inplace=True)
 
-    # group by 'Product' and count unique 'Order ID'
-    grp = df.groupby('Product')['Order ID'].nunique()
+        return df
 
-    # sort in descending order
-    grp_sorted = grp.sort_values(ascending=False)
+    def get_min_probability_of_effective_sku(self):
 
-    # calculate cumulative sum and convert to percentage
-    grp_sorted_cumsum = grp_sorted.cumsum() / total_ords * 100
+        # group by 'Product' and count unique 'Order ID'
+        grp = df.groupby(self.col_sku)[self.col_order].nunique()
 
-    # get the SKUs that account for a certain percentage of total number of orders
-    top_skus = grp_sorted[grp_sorted_cumsum <= cumulative_pct]
+        # sort in descending order
+        grp_sorted = grp.sort_values(ascending=False)
 
-    # calculate the probability of these SKUs
-    top_skus_probability = top_skus / total_ords
+        # calculate cumulative sum and convert to percentage
+        grp_sorted_cumsum = grp_sorted.cumsum() / self.nunique_ord * 100
 
-    # get the minimum probability
-    min_probability = top_skus_probability.min()
+        # get the SKUs that account for a certain percentage of total number of orders
+        top_skus = grp_sorted[grp_sorted_cumsum <= self.cumulative_pct]
 
+        # calculate the probability of these SKUs
+        top_skus_probability = top_skus / self.nunique_ord
 
-    return min_probability
+        # get the minimum probability
+        min_probability = top_skus_probability.min()
 
-def read_apriori_result(load_path):
-    df = pd.read_csv(load_path)
+        return min_probability
 
-    return df
+    def perform_apriori_algorithm(self):
+        transactions = df.groupby(self.col_order)[self.col_sku].apply(list)
+        te = TransactionEncoder()
+        te_ary = te.fit(transactions).transform(transactions)
+        transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
 
+        # Calculate frequent itemsets and association rules
+        frequent_itemsets = apriori(transaction_df, min_support= self.min_support, use_colnames=True)
 
+        # Generate association rules
+        rules = association_rules(frequent_itemsets, metric='antecedent support', min_threshold= self.min_thold)
+
+        # Sort by antecedent support
+        rules_sorted = rules.sort_values(by=['antecedent support'], ascending=False)
+
+        return rules_sorted
 
 if __name__ == '__main__':
-    # df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_April_2019.csv")
-    df = read_csv_file_and_preprocess("./Dataset/Sales Product Data/Sales_total_2019.csv")
-    nunique_ord = df['Order ID'].nunique()
-    min_support = 120/nunique_ord
-    print(f'min_support = {min_support}')
 
-    thold_eff_sku = get_min_support_of_effective_sku(df, 80)
-    print(f'thold_eff_sku = {thold_eff_sku}')
-    # perform_apriori_algorithm(df = df, min_support= thold_eff_sku, metric='lift', min_thold= 0, save_as='Apriori Result_Apr 2019' )
-    perform_apriori_algorithm(df = df, min_support= min_support, metric='antecedent support', min_thold= thold_eff_sku, save_as='Apriori Result_Apr 2019' )
+    df = pd.read_csv("./Dataset/Sales Product Data/Sales_total_2019.csv")
+    mba = MarketBasketAnalysis(df= df,
+                               col_order='Order ID',
+                               col_sku= 'Product',
+                               col_date= 'Order Date',
+                               min_order= 120,
+                               cumulative_pct= 80)
 
+    result = mba.perform_apriori_algorithm()
+    print(result)
 
 
 
