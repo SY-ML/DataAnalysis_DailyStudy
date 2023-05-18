@@ -1,97 +1,20 @@
-import os
 import pandas as pd
-import numpy as np
-from mlxtend.preprocessing import TransactionEncoder
-from mlxtend.frequent_patterns import apriori, association_rules
-import matplotlib.pyplot as plt
-import seaborn as sns
-from mpl_toolkits.mplot3d import Axes3D
-
-class MarketBasketAnalysis():
-    def __init__(self, df, col_order, col_sku, col_date, min_order, cumulative_pct):
-        self.df = self.preprocess_dataset(df)
-
-        self.col_order = col_order
-        self.col_sku = col_sku
-        self.col_date = col_date
-
-        #parameters
-        self.cumulative_pct = cumulative_pct
-        self.min_thold = self.get_min_probability_of_effective_sku()
-
-        self.nunique_ord = df['Order ID'].nunique()
-        self.min_support = min_order / self.nunique_ord
-
-        # result
-        self.result_apriori = self.perform_apriori_algorithm()
-
-
-    ## Back to beginning:
-
-    def preprocess_dataset(self, df):
-        # Convert string to date
-        df = pd.to_datetime(df, infer_datetime_format=True).dt.date
-
-        # drop rows with nan
-        df.dropna(inplace=True)
-
-        return df
-
-    def get_min_probability_of_effective_sku(self):
-
-        # group by 'Product' and count unique 'Order ID'
-        grp = df.groupby(self.col_sku)[self.col_order].nunique()
-
-        # sort in descending order
-        grp_sorted = grp.sort_values(ascending=False)
-
-        # calculate cumulative sum and convert to percentage
-        grp_sorted_cumsum = grp_sorted.cumsum() / self.nunique_ord * 100
-
-        # get the SKUs that account for a certain percentage of total number of orders
-        top_skus = grp_sorted[grp_sorted_cumsum <= self.cumulative_pct]
-
-        # calculate the probability of these SKUs
-        top_skus_probability = top_skus / self.nunique_ord
-
-        # get the minimum probability
-        min_probability = top_skus_probability.min()
-
-        return min_probability
-
-    def perform_apriori_algorithm(self):
-        transactions = df.groupby(self.col_order)[self.col_sku].apply(list)
-        te = TransactionEncoder()
-        te_ary = te.fit(transactions).transform(transactions)
-        transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
-
-        # Calculate frequent itemsets and association rules
-        frequent_itemsets = apriori(transaction_df, min_support= self.min_support, use_colnames=True)
-
-        # Generate association rules
-        rules = association_rules(frequent_itemsets, metric='antecedent support', min_threshold= self.min_thold)
-
-        # Sort by antecedent support
-        rules_sorted = rules.sort_values(by=['antecedent support'], ascending=False)
-
-        return rules_sorted
+from 1_Market
 
 if __name__ == '__main__':
-
+    # Read dataset
     df = pd.read_csv("./Dataset/Sales Product Data/Sales_total_2019.csv")
-    mba = MarketBasketAnalysis(df= df,
+
+    # Initiate the market basket analysis class
+    mba = MarketBasketAnalysis(df=df,
                                col_order='Order ID',
-                               col_sku= 'Product',
-                               col_date= 'Order Date',
-                               min_order= 120,
-                               cumulative_pct= 80)
-
-    result = mba.perform_apriori_algorithm()
+                               col_sku='Product',
+                               col_date='Order Date',
+                               min_order=120,
+                               cumulative_pct=80)
+    # Result of analysis
+    result = mba.perform_apriori_algorithm(df)
     print(result)
-
-
-
-
 
 
 #
