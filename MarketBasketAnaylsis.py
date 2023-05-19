@@ -3,7 +3,7 @@ from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, association_rules
 
 class MarketBasketAnalysis():
-    def __init__(self, df, col_order, col_sku, col_date, min_order, cumulative_pct):
+    def __init__(self, df, col_order, col_sku, col_date, col_qty,min_order, cumulative_pct, effective_by_qty=False):
         """
 
         :param df: dataset
@@ -19,9 +19,13 @@ class MarketBasketAnalysis():
         self._col_order = col_order
         self._col_sku = col_sku
         self._col_date = col_date
+        self._col_qty = col_qty
         self._cumulative_pct = cumulative_pct
+        self._quantity_wise = effective_by_qty
         # Count the unique number of orders
         self._nunique_ord = self._df[self._col_order].nunique()
+        self._sum_qty = self._df[self._col_qty].sum()
+
         # Calculate the support threshold for apriori
         self._min_support = min_order / self._nunique_ord
         # Calculate the minimum support threshold for effective SKUs
@@ -34,6 +38,9 @@ class MarketBasketAnalysis():
         :param col_date: The column name for date information
         :return: Preprocessed DataFrame
         """
+        # Load necessary columns
+        df = df[[self._col_date, self._col_order, self._col_sku, self._col_qty]]
+
         # Convert date column to datetime format
         df[col_date] = pd.to_datetime(df[col_date]).dt.date
         # Remove rows with missing data
@@ -45,18 +52,35 @@ class MarketBasketAnalysis():
         Calculate the minimum probability for effective SKUs.
         :return: Minimum probability
         """
-        # Group by SKU and count the unique number of orders
-        grp = self._df.groupby(self._col_sku)[self._col_order].nunique()
-        # Sort the group in descending order
-        grp_sorted = grp.sort_values(ascending=False)
-        # Calculate the cumulative sum and convert to percentage
-        grp_sorted_cumsum = grp_sorted.cumsum() / self._nunique_ord * 100
+
+        ### Define effective skus
+
+        total = self._sum_qty if self._quantity_wise else self._nunique_ord
+
+        # quantity wise
+        if self._quantity_wise is True:
+            # Group by SKU and count the unique number of orders
+            grp = self._df.groupby(self._col_sku)[self._col_qty].sum()
+            # Sort the group in descending order
+            grp_sorted = grp.sort_values(ascending=False)
+            # Calculate the cumulative sum and convert to percentage
+            grp_sorted_cumsum = grp_sorted.cumsum() / total * 100
+        # order apperance wise
+        else:
+            # Group by SKU and count the unique number of orders
+            grp = self._df.groupby(self._col_sku)[self._col_order].nunique()
+            # Sort the group in descending order
+            grp_sorted = grp.sort_values(ascending=False)
+            # Calculate the cumulative sum and convert to percentage
+            grp_sorted_cumsum = grp_sorted.cumsum() / total * 100
+
         # Get the SKUs that account for a certain percentage of the total number of orders
         top_skus = grp_sorted[grp_sorted_cumsum <= self._cumulative_pct]
         # Calculate the probability of these SKUs
-        top_skus_probability = top_skus / self._nunique_ord
+        top_skus_probability = top_skus / total
         # Get the minimum probability
         min_probability = top_skus_probability.min()
+
         return min_probability
 
     def perform_apriori_algorithm(self, df):

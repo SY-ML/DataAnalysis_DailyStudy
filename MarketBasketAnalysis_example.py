@@ -1,5 +1,5 @@
 import pandas as pd
-from 1_Market
+from MarketBasketAnaylsis import MarketBasketAnalysis
 
 if __name__ == '__main__':
     # Read dataset
@@ -11,7 +11,9 @@ if __name__ == '__main__':
                                col_sku='Product',
                                col_date='Order Date',
                                min_order=120,
-                               cumulative_pct=80)
+                               cumulative_pct=80,
+                               quantity_wise=False)
+
     # Result of analysis
     result = mba.perform_apriori_algorithm(df)
     print(result)
