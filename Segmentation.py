@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
+import statistics
 
 df = pd.read_csv('./dataset/Sales Product Data/Sales_April_2019.csv')
 df = df[df['Order Date'] != 'Order Date']
@@ -13,6 +14,31 @@ def fix_double_period(val):
     return val
 
 df['Price Each'] = df['Price Each'].apply(fix_double_period).astype(float)
+
+
+# Split values and count frequencies
+word_freq = {}
+for value in df['Product'].astype(str):
+    words = value.split()
+    for word in words:
+        word_freq[word] = word_freq.get(word, 0) + 1
+
+# Calculate mean and standard deviation of word frequencies
+frequencies = list(word_freq.values())
+mean = statistics.mean(frequencies)
+std_dev = statistics.stdev(frequencies)
+
+# Identify words with frequency over 1 sigma
+high_freq_words = {}
+for word, freq in word_freq.items():
+    if freq > (mean + std_dev):
+        high_freq_words[word] = freq
+
+ls_frequent_kwords = high_freq_words.keys()
+print(word_freq)
+print(high_freq_words)
+print(ls_frequent_kwords)
+exit()
 
 # Assuming df is your DataFrame and "Order Date" is in MM/DD/YY H:M format
 df['Order Date'] = pd.to_datetime(df['Order Date'], format='%m/%d/%y %H:%M')
