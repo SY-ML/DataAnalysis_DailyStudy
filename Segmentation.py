@@ -6,6 +6,8 @@ import statistics
 
 df = pd.read_csv('./dataset/Sales Product Data/Sales_April_2019.csv')
 df = df[df['Order Date'] != 'Order Date']
+df.dropna(inplace=True)
+
 def fix_double_period(val):
     if isinstance(val, str):  # only apply the operation to string values
         parts = val.split('.')
@@ -15,30 +17,20 @@ def fix_double_period(val):
 
 df['Price Each'] = df['Price Each'].apply(fix_double_period).astype(float)
 
+from collections import Counter
 
-# Split values and count frequencies
-word_freq = {}
-for value in df['Product'].astype(str):
-    words = value.split()
-    for word in words:
-        word_freq[word] = word_freq.get(word, 0) + 1
+# Create a list of all words in the 'Product' column
+print(df['Product'])
+all_words = df['Product'].str.split()
+# all_words = df['Product'].str.split(expand=True).stack()
+print(all_words)
+print(type(all_words))
+# Count the frequency of each word
+word_freq = Counter(all_words)
 
-# Calculate mean and standard deviation of word frequencies
-frequencies = list(word_freq.values())
-mean = statistics.mean(frequencies)
-std_dev = statistics.stdev(frequencies)
+# Print the most common words and their frequencies
+print(word_freq.most_common())
 
-# Identify words with frequency over 1 sigma
-high_freq_words = {}
-for word, freq in word_freq.items():
-    if freq > (mean + std_dev):
-        high_freq_words[word] = freq
-
-ls_frequent_kwords = high_freq_words.keys()
-print(word_freq)
-print(high_freq_words)
-print(ls_frequent_kwords)
-exit()
 
 # Assuming df is your DataFrame and "Order Date" is in MM/DD/YY H:M format
 df['Order Date'] = pd.to_datetime(df['Order Date'], format='%m/%d/%y %H:%M')
