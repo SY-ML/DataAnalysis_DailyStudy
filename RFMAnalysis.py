@@ -4,6 +4,7 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 import statistics
 # poff
+#off today
 # https://datarian.io/blog/what-is-rfm
 class RFMAnalysis():
     def __init__(self, df, col_date, col_customer, col_order, col_qty, col_price):
