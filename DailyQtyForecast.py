@@ -1,72 +1,60 @@
+# Import necessary libraries
 import pandas as pd
 import numpy as np
-from keras.models import Sequential
-from keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
+from keras.models import Sequential
+from keras.layers import Dense, LSTM
+from sklearn.metrics import mean_squared_error
 
-# Load the dataset
-data = pd.read_csv('data.csv')
+# Load the data
+df = pd.read_csv('your_data.csv')
+df['Date'] = pd.to_datetime(df['Date'])
 
-# convert 'Date' to datetime
-data['Date'] = pd.to_datetime(data['Date'])
-
-# Make sure your data is sorted by date
-data.sort_values('Date', inplace=True, ascending=True)
-
-# Use 'Date' as index
-data.set_index('Date', inplace=True)
-
-# Select 'DailyQty' as the target variable
-target_var = 'DailyQty'
-
-# Normalize the features to be between 0 and 1
+# Scale the 'DailyQty' column using MinMaxScaler
 scaler = MinMaxScaler(feature_range=(0, 1))
-scaled_data = scaler.fit_transform(data)
+df['Scaled_DailyQty'] = scaler.fit_transform(np.array(df['DailyQty']).reshape(-1,1))
 
-# Split data into training and test sets. Let's use 70% for training and 30% for testing
-train_size = int(len(scaled_data) * 0.7)
-train, test = scaled_data[:train_size, :], scaled_data[train_size:, :]
-
-# Convert an array of values into a dataset matrix
+# Function to convert an array of values into a dataset matrix
 def create_dataset(dataset, look_back=1):
     X, Y = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i+look_back), :]
+    for i in range(len(dataset)-look_back-1):
+        a = dataset[i:(i+look_back)]
         X.append(a)
-        Y.append(dataset[i + look_back, data.columns.get_loc(target_var)])
+        Y.append(dataset[i + look_back])
     return np.array(X), np.array(Y)
 
+# Using the function to prepare the data
 look_back = 1
-X_train, y_train = create_dataset(train, look_back)
-X_test, y_test = create_dataset(test, look_back)
+X, Y = create_dataset(df['Scaled_DailyQty'], look_back)
 
-# LSTM expects the input data in the form: [samples, time steps, features]
-# So, we reshape the input to be [samples, time steps, features]
-X_train = np.reshape(X_train, (X_train.shape[0], 1, X_train.shape[1]))
-X_test = np.reshape(X_test, (X_test.shape[0], 1, X_test.shape[1]))
+# Reshaping the input to be [samples, time steps, features]
+X = np.reshape(X, (X.shape[0], 1, X.shape[1]))
 
-# Build the LSTM model
+# Splitting the data into training and testing sets
+train_size = int(len(X) * 0.67)
+test_size = len(X) - train_size
+X_train, X_test = X[0:train_size,:], X[train_size:len(X),:]
+Y_train, Y_test = Y[0:train_size], Y[train_size:len(Y)]
+
+# Creating and fitting the LSTM network
 model = Sequential()
 model.add(LSTM(4, input_shape=(1, look_back)))
 model.add(Dense(1))
 model.compile(loss='mean_squared_error', optimizer='adam')
+model.fit(X_train, Y_train, epochs=100, batch_size=1, verbose=2)
 
-# Fit the model
-model.fit(X_train, y_train, epochs=100, batch_size=1, verbose=2)
-
-# make predictions
+# Making predictions
 train_predict = model.predict(X_train)
 test_predict = model.predict(X_test)
 
-# invert predictions to original scale for interpretation
+# Inverting predictions
 train_predict = scaler.inverse_transform(train_predict)
-y_train = scaler.inverse_transform([y_train])
+Y_train = scaler.inverse_transform([Y_train])
 test_predict = scaler.inverse_transform(test_predict)
-y_test = scaler.inverse_transform([y_test])
+Y_test = scaler.inverse_transform([Y_test])
 
-# plot actual data vs predictions
-plt.plot(scaler.inverse_transform(scaled_data[data.columns.get_loc(target_var)]), color='b')
-plt.plot(np.concatenate((train_predict,test_predict)), color='r')
-plt.show()
+# Calculating root mean squared error
+train_score = np.sqrt(mean_squared_error(Y_train[0], train_predict[:,0]))
+print('Train Score: %.2f RMSE' % (train_score))
+test_score = np.sqrt(mean_squared_error(Y_test[0], test_predict[:,0]))
+print('Test Score: %.2f RMSE' % (test_score))
