@@ -5,21 +5,16 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
-# from keras.models import Sequential
-# from keras.layers import Dense, LSTM
+from keras.models import Sequential
+from keras.layers import Dense, LSTM
 
 # Load the data
 df = pd.read_csv('./dataset/supermarket_sales - Sheet1.csv', parse_dates=['Date'])
 
 df_base = df[['Date', 'Quantity']].copy()
-plt.show()
-df_base = df_base.groupby(['Date'], as_index=False)['Quantity'].sum()
 
-print(df.columns)
-print(df_base)
-print(df[['Date', 'Quantity']])
-exit()
-df['Date'] = pd.to_datetime(df['Date'])
+df_base = df_base.groupby(['Date'], as_index=False)['Quantity'].sum()
+df_base.rename(columns = {'Quantity': 'DailyQty'}, inplace=True)
 
 # Scale the 'DailyQty' column using MinMaxScaler
 scaler = MinMaxScaler(feature_range=(0, 1))
