@@ -20,6 +20,8 @@ df_base.rename(columns = {'Quantity': 'DailyQty'}, inplace=True)
 scaler = MinMaxScaler(feature_range=(0, 1))
 df['Scaled_DailyQty'] = scaler.fit_transform(np.array(df['DailyQty']).reshape(-1,1))
 
+#062723 environment reinstalled
+exit()
 # Function to convert an array of values into a dataset matrix
 def create_dataset(dataset, look_back=1):
     X, Y = [], []
