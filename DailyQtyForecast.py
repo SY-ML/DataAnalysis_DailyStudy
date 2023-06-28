@@ -16,12 +16,13 @@ df_base = df[['Date', 'Quantity']].copy()
 df_base = df_base.groupby(['Date'], as_index=False)['Quantity'].sum()
 df_base.rename(columns = {'Quantity': 'DailyQty'}, inplace=True)
 
+print(df_base)
+
 # Scale the 'DailyQty' column using MinMaxScaler
 scaler = MinMaxScaler(feature_range=(0, 1))
-df['Scaled_DailyQty'] = scaler.fit_transform(np.array(df['DailyQty']).reshape(-1,1))
+df_base['Scaled_DailyQty'] = scaler.fit_transform(np.array(df_base['DailyQty']).reshape(-1,1))
 
 #062723 environment reinstalled
-exit()
 # Function to convert an array of values into a dataset matrix
 def create_dataset(dataset, look_back=1):
     X, Y = [], []
@@ -31,12 +32,16 @@ def create_dataset(dataset, look_back=1):
         Y.append(dataset[i + look_back])
     return np.array(X), np.array(Y)
 
+print(df_base)
 # Using the function to prepare the data
 look_back = 1
-X, Y = create_dataset(df['Scaled_DailyQty'], look_back)
+X, Y = create_dataset(df_base['Scaled_DailyQty'], look_back)  # Change df to df_base here
 
 # Reshaping the input to be [samples, time steps, features]
 X = np.reshape(X, (X.shape[0], 1, X.shape[1]))
+
+print(X)
+exit()
 
 # Splitting the data into training and testing sets
 train_size = int(len(X) * 0.67)
