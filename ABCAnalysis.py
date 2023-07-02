@@ -30,4 +30,6 @@ What criteria should be applied when dividing items into group
 - cost per unit
 - 
 
+# Date, IN/OUT, SKU, QTY, 
+
 """
