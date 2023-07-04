@@ -1,0 +1,2 @@
+Epochs,Batch Size,Layer1 Model,Layer1 Params,Layer2 Model,Layer2 Params,Optimizer,Final Training Loss,Final Validation Loss
+50,10,LSTM,10400,LSTM,20200,Adam,0.04419964924454689,0.039890892803668976
