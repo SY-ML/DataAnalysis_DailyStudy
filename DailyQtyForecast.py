@@ -11,104 +11,125 @@ import csv
 import os
 
 
-def create_dataset(dataset, look_back=1):
-    X, Y = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back)]
-        X.append(a)
-        Y.append(dataset[i + look_back])
-    return np.array(X), np.array(Y)
+class RunLSTM():
+    def __init__(self, df, col_indVar, col_depVar, col_time):
+        """
+        Initialize the LSTM model.
 
+        Args:
+            df: A Pandas DataFrame that contains the dataset.
+            col_indVar: A string or list of strings that represent the column name(s) of the independent variable(s).
+            col_depVar: A string or list of strings that represent the column name(s) of the dependent variable(s).
+            col_time: A string that represents the column name of the time data.
+        """
+        self._df = df
+        self._col_iv = col_indVar
+        self._col_dv = col_depVar if isinstance(col_depVar, list) else [col_depVar]
+        self._col_t = col_time
 
-df = pd.read_csv('./dataset/supermarket_sales - Sheet1.csv', parse_dates=['Date'])
-df_base = df[['Date', 'Quantity']].copy()
+    def preprocess_dataset(self):
+        """
+        Preprocesses the dataset: groups by date, fills missing dates with 0, shifts the quantities to create
+        new 'Qty (yesterday)' columns for each dependent variable.
 
+        Returns:
+            dataframe: The preprocessed dataframe.
+        """
+        # Copy the dataframe to avoid modifying the original
+        df = self._df.copy()
 
-def preprocess_dataset(df):
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.groupby('Date')['Quantity'].sum().reset_index()
+        # Parse the dates
+        df[self._col_t] = pd.to_datetime(df[self._col_t])
+
+        return df
+def load_mydataset():
+    df = pd.read_csv('./dataset/supermarket_sales - Sheet1.csv', parse_dates=['Date'])
+    df = df.groupby(['Date'], as_index=True)['Quantity'].sum().reset_index()
+
+    # Rename 'Quantity' to 'Qty(prev)'
+    df.rename(columns={'Quantity': 'Qty(prev)'}, inplace=True)
+
+    # Then create 'Qty' based on the shifted values of 'Qty(prev)'
+    df['Qty'] = df['Qty(prev)'].shift(1)
+
+    # Handle NaN values and convert the column back to integer
+    df['Qty'] = df['Qty'].fillna(0).astype(int)
+
+    # Get the min and max dates
     start_date = df['Date'].min()
     end_date = df['Date'].max()
+
+    # Create a date range
     date_range = pd.date_range(start=start_date, end=end_date)
+
+    # Set the date as the index
     df.set_index('Date', inplace=True)
+
+    # Reindex the dataframe
     df = df.reindex(date_range, fill_value=0)
+
+    # Reset the index so 'Date' becomes a column again
     df.reset_index(inplace=True)
+
+    # Rename the 'index' column to 'Date'
     df.rename(columns={'index': 'Date'}, inplace=True)
-    df['Qty (yesterday)'] = df['Quantity'].shift(fill_value=0)
-    df.rename(columns={'Quantity': 'Qty (today)'}, inplace=True)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    df = scaler.fit_transform(np.array(df['Qty (today)']).reshape(-1, 1))
+
     return df
 
-
-df_base = preprocess_dataset(df=df_base)
-
-
-def create_model(look_back, optimizer='adam'):
-    model = Sequential()
-    model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
-    model.add(LSTM(50))
-    model.add(Dense(1))
-    model.summary()
-    model.compile(loss='mean_squared_error', optimizer=optimizer)
-    return model
-
-def predict_next_day(df, look_back, epochs=50, batch_size=10):
-
-    train_size = int(len(df) * 0.8)
-    test_size = len(df) - train_size
-    train, test = df[0:train_size,:], df[train_size:len(df),:]
-
-    X_train, y_train = create_dataset(train, look_back)
-    X_test, y_test = create_dataset(test, look_back)
-
-    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-    X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-
-    model = create_model(look_back, optimizer=Adam())
-
-    checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
-    history = model.fit(X_train, y_train,
-                        validation_data=(X_test, y_test),
-                        callbacks=[EarlyStopping(monitor='val_loss', patience=10), checkpoint_callback],
-                        epochs=epochs, batch_size=batch_size)
-
-    visualize_performance(history)
-
-    testlog_filename = './dataset/supermarket_sales - Sheet1_testlog.csv'
-    write_testlog(testlog_filename, model, history, epochs, batch_size)
-
-def visualize_performance(history):
-    plt.figure(figsize=(10, 6))
-
-    plt.plot(history.history['loss'], label='Training Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title('Model performance')
-    plt.ylabel('Loss')
-    plt.xlabel('Epochs')
-    plt.legend()
-    plt.show()
-
-def write_testlog(filename, model, history, epochs, batch_size):
-    fieldnames = ['Epochs', 'Batch Size', 'Layer1 Model', 'Layer1 Params', 'Layer2 Model', 'Layer2 Params', 'Optimizer', 'Final Training Loss', 'Final Validation Loss']
-
-    layer1_model = type(model.layers[0]).__name__
-    layer1_params = model.layers[0].count_params()
-
-    layer2_model = type(model.layers[1]).__name__
-    layer2_params = model.layers[1].count_params()
-
-    optimizer = type(model.optimizer).__name__
-
-    final_train_loss = history.history['loss'][-1]
-    final_val_loss = history.history['val_loss'][-1]
-
-    log_data = [epochs, batch_size, layer1_model, layer1_params, layer2_model, layer2_params, optimizer, final_train_loss, final_val_loss]
-    file_exists = os.path.isfile(filename)
-    with open(filename, mode='a', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow({field: data for field, data in zip(fieldnames, log_data)})
-
-predict_next_day(df_base, look_back=1)
+df = load_mydataset()
+print(df)
+rl = RunLSTM(df = df, col_time='Date', col_indVar='Qty(prev)', col_depVar='Qty')
+print(rl.preprocess_dataset())
+exit()
+#
+# def create_dataset(dataset, look_back=1):
+#     X, Y = [], []
+#     for i in range(len(dataset) - look_back - 1):
+#         a = dataset[i:(i + look_back)]
+#         X.append(a)
+#         Y.append(dataset[i + look_back])
+#     return np.array(X), np.array(Y)
+#
+#
+# def create_model(look_back, optimizer='adam'):
+#     model = Sequential()
+#     model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
+#     model.add(LSTM(50))
+#     model.add(Dense(1))
+#     model.summary()
+#     model.compile(loss='mean_squared_error', optimizer=optimizer)
+#     return model
+#
+#
+# def predict_next_day(df, look_back, epochs=50, batch_size=10):
+#     df, scaler = preprocess_dataset(df=df)
+#
+#     train_size = int(len(df) * 0.8)
+#     test_size = len(df) - train_size
+#     train, test = df[0:train_size, :], df[train_size:len(df), :]
+#
+#     X_train, y_train = create_dataset(train, look_back)
+#     X_test, y_test = create_dataset(test, look_back)
+#
+#     X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+#     X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+#
+#     model = create_model(look_back, optimizer=Adam())
+#
+#     checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
+#     early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+#
+#     history = model.fit(X_train, y_train,
+#                         validation_data=(X_test, y_test),
+#                         callbacks=[early_stopping_callback, checkpoint_callback],
+#                         epochs=epochs, batch_size=batch_size)
+#
+#     return model, scaler
+#
+#
+# # Load the data
+# df = pd.read_csv('./dataset/supermarket_sales - Sheet1.csv', parse_dates=['Date'])
+# df_base = df[['Date', 'Quantity']].copy()
+#
+# # Train the model and get the scaler
+# model, scaler = predict_next_day(df_base, look_back=1)
