@@ -3,6 +3,7 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from tensorflow.keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pandas as pd
 
@@ -12,10 +13,14 @@ class RunLSTM():
         self._col_iv = col_indVar
         self._col_dv = col_depVar if isinstance(col_depVar, list) else [col_depVar]
         self._col_t = col_time
+        self.predict_next_day(1)
 
     def preprocess_dataset(self):
         df = self._df.copy()
+
+        # String to date
         df[self._col_t] = pd.to_datetime(df[self._col_t])
+
         return df
 
     def create_model(self, look_back, optimizer='adam'):
@@ -37,13 +42,24 @@ class RunLSTM():
 
     def predict_next_day(self, look_back, epochs=50, batch_size=10):
         df = self.preprocess_dataset()
+        print(df)
+        inputs = df[self._col_iv].values.shape
+        print(inputs)
+        target = df[self._col_dv].values.shape
+        print(target)
 
-        dataset = df.values
-        dataset = dataset.astype('float32')
+        scaler = StandardScaler()
+        inputs = scaler.fit_transform(inputs)
+        target = scaler.fit_transform(target)
+
+        print(inputs, target)
+
+        exit()
 
         train_size = int(len(dataset) * 0.8)
         test_size = len(dataset) - train_size
         train, test = dataset[0:train_size,:], dataset[train_size:len(dataset),:]
+
 
         X_train, y_train = self.create_dataset(train, look_back)
         X_test, y_test = self.create_dataset(test, look_back)
@@ -100,8 +116,5 @@ def load_mydataset():
 
 
 df = load_mydataset()
-print(df)
 rl = RunLSTM(df=df, col_time='Date', col_indVar='Qty(prev)', col_depVar='Qty')
-print(rl.preprocess_dataset())
-rl.predict_next_day(look_back=1)
 exit()
