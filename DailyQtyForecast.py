@@ -10,7 +10,7 @@ import pandas as pd
 class RunLSTM():
     def __init__(self, df, col_indVar, col_depVar, col_time):
         self._df = df
-        self._col_iv = col_indVar
+        self._col_iv = col_indVar if isinstance(col_indVar, list) else [col_indVar]
         self._col_dv = col_depVar if isinstance(col_depVar, list) else [col_depVar]
         self._col_t = col_time
         self.predict_next_day(1)
@@ -42,19 +42,18 @@ class RunLSTM():
 
     def predict_next_day(self, look_back, epochs=50, batch_size=10):
         df = self.preprocess_dataset()
-        print(df)
-        inputs = df[self._col_iv].values.shape
-        print(inputs)
-        target = df[self._col_dv].values.shape
-        print(target)
+        # print(df)
+        inputs = df[self._col_iv].values
+        target = df[self._col_dv].values
+
+        # print(self._col_iv, self._col_dv)
+        # TODO-Encoding
 
         scaler = StandardScaler()
         inputs = scaler.fit_transform(inputs)
         target = scaler.fit_transform(target)
 
-        print(inputs, target)
 
-        exit()
 
         train_size = int(len(dataset) * 0.8)
         test_size = len(dataset) - train_size
