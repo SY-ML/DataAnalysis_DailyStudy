@@ -46,6 +46,10 @@ class RunLSTM():
         inputs = df[self._col_iv].values
         target = df[self._col_dv].values
 
+        predictions = []
+
+        for i in range()
+
         # print(self._col_iv, self._col_dv)
         # TODO-Encoding
 
