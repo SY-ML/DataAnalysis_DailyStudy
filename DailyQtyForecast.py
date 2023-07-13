@@ -7,6 +7,8 @@ from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pandas as pd
 
+
+7071323
 class RunLSTM():
     def __init__(self, df, col_indVar, col_depVar, col_time):
         self._df = df
