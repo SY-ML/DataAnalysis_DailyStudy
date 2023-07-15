@@ -48,15 +48,28 @@ class RunLSTM():
 
         predictions = []
 
-        for i in range()
+        for i in range(look_back, len(inputs)):
+            print(f'look_back = {look_back}')
+            data_train = inputs[:i]
+            data_target = target[:i]
 
-        # print(self._col_iv, self._col_dv)
-        # TODO-Encoding
+            scaler_train = StandardScaler()
+            scaler_target = StandardScaler()
 
-        scaler = StandardScaler()
-        inputs = scaler.fit_transform(inputs)
-        target = scaler.fit_transform(target)
+            data_std_train = scaler_train.fit_transform(data_train)
+            data_std_target = scaler_target.fit_transform(data_target)
 
+            print(data_std_train, data_target)
+
+            x_train = np.array([data_std_train[i-look_back:i, 0] for i in range(look_back, len(data_std_train))])
+            y_train = data_std_target[look_back:]
+
+            lstm = self.create_model(look_back= look_back, optimizer='Adam', num_features = data_std_train.shape[1])
+
+
+            print(x_train)
+            print(y_train)
+            exit()
 
 
         train_size = int(len(dataset) * 0.8)
