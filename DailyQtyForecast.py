@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 
-7071323
 class RunLSTM():
     def __init__(self, df, col_indVar, col_depVar, col_time):
         self._df = df
@@ -23,79 +22,45 @@ class RunLSTM():
         # String to date
         df[self._col_t] = pd.to_datetime(df[self._col_t])
 
+        # drop
+        df.dropna(inplace=True)
+
         return df
 
-    def create_model(self, look_back, optimizer='adam'):
+    def create_model(self, look_back, num_features, optimizer='adam'):
         model = Sequential()
-        model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
-        model.add(LSTM(50))
+        model.add(LSTM(50, activation='tanh', return_sequences=True, input_shape=(look_back, num_features)))
         model.add(Dense(1))
         model.summary()
-        model.compile(loss='mean_squared_error', optimizer=optimizer)
+        model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['MeanSquaredError'])
         return model
 
-    def create_dataset(self, dataset, look_back):
-        X, Y = [], []
-        for i in range(len(dataset) - look_back - 1):
-            a = dataset[i:(i + look_back), 0]
-            X.append(a)
-            Y.append(dataset[i + look_back, 0])
-        return np.array(X), np.array(Y)
-
-    def predict_next_day(self, look_back, epochs=50, batch_size=10):
+    def predict_next_day(self, epochs=50, batch_size=10):
         df = self.preprocess_dataset()
-        # print(df)
+
         inputs = df[self._col_iv].values
         target = df[self._col_dv].values
 
-        predictions = []
-
-        for i in range(look_back, len(inputs)):
-            print(f'look_back = {look_back}')
-            data_train = inputs[:i]
-            data_target = target[:i]
+        for i in range(1, len(inputs)):
+            data_input = inputs[:i].reshape(-1, 1)
+            data_target = target[:i].reshape(-1, 1)
 
             scaler_train = StandardScaler()
             scaler_target = StandardScaler()
 
-            data_std_train = scaler_train.fit_transform(data_train)
+            data_std_train = scaler_train.fit_transform(data_input)
             data_std_target = scaler_target.fit_transform(data_target)
 
-            print(data_std_train, data_target)
+            # Create the LSTM model
+            lstm = self.create_model(look_back=1, optimizer='Adam', num_features=data_std_train.shape[1])
 
-            x_train = np.array([data_std_train[i-look_back:i, 0] for i in range(look_back, len(data_std_train))])
-            y_train = data_std_target[look_back:]
+            # Create datasets
+            # checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='loss', mode='min')
+            # early_stopping_callback = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
+            # lstm.fit(data_std_train, data_std_target, callbacks=[early_stopping_callback, checkpoint_callback],
 
-            lstm = self.create_model(look_back= look_back, optimizer='Adam', num_features = data_std_train.shape[1])
-
-
-            print(x_train)
-            print(y_train)
-            exit()
-
-
-        train_size = int(len(dataset) * 0.8)
-        test_size = len(dataset) - train_size
-        train, test = dataset[0:train_size,:], dataset[train_size:len(dataset),:]
-
-
-        X_train, y_train = self.create_dataset(train, look_back)
-        X_test, y_test = self.create_dataset(test, look_back)
-
-        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-        X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-
-        model = self.create_model(look_back, optimizer=Adam())
-
-        checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
-        early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-
-        history = model.fit(X_train, y_train,
-                            validation_data=(X_test, y_test),
-                            callbacks=[early_stopping_callback, checkpoint_callback],
-                            epochs=epochs, batch_size=batch_size)
-
-        return model
+            # Fit the model to the training data
+            lstm.fit(data_std_train, data_std_target, epochs=epochs, batch_size=batch_size)
 
 
 def load_mydataset():
@@ -106,7 +71,7 @@ def load_mydataset():
     df.rename(columns={'Quantity': 'Qty(prev)'}, inplace=True)
 
     # Then create 'Qty' based on the shifted values of 'Qty(prev)'
-    df['Qty'] = df['Qty(prev)'].shift(1)
+    df['Qty'] = df['Qty(prev)'].shift(-1)
 
     # Handle NaN values and convert the column back to integer
     df['Qty'] = df['Qty'].fillna(0).astype(int)
@@ -134,5 +99,7 @@ def load_mydataset():
 
 
 df = load_mydataset()
+for int in [3, 5, 10, 30, 60]:
+    df[f'Qty(ma-{int})'] = df['Qty(prev)'].rolling(int).mean()
+
 rl = RunLSTM(df=df, col_time='Date', col_indVar='Qty(prev)', col_depVar='Qty')
-exit()
