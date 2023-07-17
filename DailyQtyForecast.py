@@ -1,12 +1,12 @@
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
-from tensorflow.keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pandas as pd
-
+import csv
+import os
 
 class RunLSTM():
     def __init__(self, df, col_indVar, col_depVar, col_time):
@@ -14,7 +14,7 @@ class RunLSTM():
         self._col_iv = col_indVar if isinstance(col_indVar, list) else [col_indVar]
         self._col_dv = col_depVar if isinstance(col_depVar, list) else [col_depVar]
         self._col_t = col_time
-        self.predict_next_day(1)
+        self.predict_next_day(5)
 
     def preprocess_dataset(self):
         df = self._df.copy()
@@ -27,6 +27,31 @@ class RunLSTM():
 
         return df
 
+    def log_parameters(self, history, optimizer, look_back, epochs, batch_size):
+        layer1 = self.lstm.layers[0]
+        layer2 = self.lstm.layers[1]
+
+        log_data = {
+            'Epochs': epochs,
+            'Batch Size': batch_size,
+            'Lookback': look_back,
+            'Layer1 Model': layer1.__class__.__name__,
+            'Layer1 Params': layer1.count_params(),
+            'Layer2 Model': layer2.__class__.__name__,
+            'Layer2 Params': layer2.count_params(),
+            'Optimizer': optimizer,
+            'Final Training Loss': history.history['loss'][-1],
+            'Final Validation Loss': history.history['val_loss'][-1],
+        }
+
+        # Convert to DataFrame
+        df_log = pd.DataFrame([log_data])
+
+        # Append to the log file (or create it if it doesn't exist)
+        df_log.to_csv('./dataset/supermarket_sales - Sheet1_testlog.csv', mode='a',
+                      header=not os.path.exists('./dataset/supermarket_sales - Sheet1_testlog.csv'), index=False)
+
+
     def create_model(self, look_back, num_features, optimizer='adam'):
         model = Sequential()
         model.add(LSTM(50, activation='tanh', return_sequences=True, input_shape=(look_back, num_features)))
@@ -35,32 +60,49 @@ class RunLSTM():
         model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['MeanSquaredError'])
         return model
 
-    def predict_next_day(self, epochs=50, batch_size=10):
+    def predict_next_day(self, look_back, epochs=50, batch_size=10):
         df = self.preprocess_dataset()
 
         inputs = df[self._col_iv].values
         target = df[self._col_dv].values
 
-        for i in range(1, len(inputs)):
-            data_input = inputs[:i].reshape(-1, 1)
-            data_target = target[:i].reshape(-1, 1)
+        loss_history = []  # This list will store the loss of each training iteration
+
+        # Create the LSTM model outside the loop
+        lstm = self.create_model(look_back=look_back, optimizer='Adam', num_features=1)
+
+        for i in range(look_back, len(inputs)):
+            data_input = inputs[:i]
+            data_target = target[:i]
 
             scaler_train = StandardScaler()
             scaler_target = StandardScaler()
 
-            data_std_train = scaler_train.fit_transform(data_input)
-            data_std_target = scaler_target.fit_transform(data_target)
-
-            # Create the LSTM model
-            lstm = self.create_model(look_back=1, optimizer='Adam', num_features=data_std_train.shape[1])
+            data_std_train = scaler_train.fit_transform(data_input.reshape(-1, 1))
+            data_std_target = scaler_target.fit_transform(data_target.reshape(-1, 1))
 
             # Create datasets
-            # checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='loss', mode='min')
-            # early_stopping_callback = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
-            # lstm.fit(data_std_train, data_std_target, callbacks=[early_stopping_callback, checkpoint_callback],
+            checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
+            early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+            # Calculate the validation split ratio for the last row
+            validation_split_ratio = min(1 / data_std_train.shape[0], 0.2)  # limit to 20% of the data
+
 
             # Fit the model to the training data
-            lstm.fit(data_std_train, data_std_target, epochs=epochs, batch_size=batch_size)
+            # Fit the model to the training data
+            history = lstm.fit(data_std_train, data_std_target,
+                               callbacks=[early_stopping_callback, checkpoint_callback],
+                               epochs=epochs, batch_size=batch_size,
+                               validation_split=min(1 / data_std_train.shape[0], 0.2))
+
+            # Append the final loss of this iteration to the list
+            loss_history.append(history.history['loss'][-1])
+            print(f"Iteration {i}, Loss: {history.history['loss'][-1]}")
+
+        # At this point, loss_history contains the final loss of each training iteration.
+        # You can return it or use it directly to plot your results.
+        return loss_history
 
 
 def load_mydataset():
@@ -103,3 +145,15 @@ for int in [3, 5, 10, 30, 60]:
     df[f'Qty(ma-{int})'] = df['Qty(prev)'].rolling(int).mean()
 
 rl = RunLSTM(df=df, col_time='Date', col_indVar='Qty(prev)', col_depVar='Qty')
+
+import matplotlib.pyplot as plt
+
+# Call the method and get the loss history
+loss_history = rl.predict_next_day(1)
+
+# Plot the loss history
+plt.plot(loss_history)
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Iteration')
+plt.show()
