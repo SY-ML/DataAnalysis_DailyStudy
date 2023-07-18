@@ -2,7 +2,11 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+
 from sklearn.preprocessing import StandardScaler
+
+import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas as pd
 import csv
@@ -14,7 +18,6 @@ class RunLSTM():
         self._col_iv = col_indVar if isinstance(col_indVar, list) else [col_indVar]
         self._col_dv = col_depVar if isinstance(col_depVar, list) else [col_depVar]
         self._col_t = col_time
-        self.predict_next_day(5)
 
     def preprocess_dataset(self):
         df = self._df.copy()
@@ -146,10 +149,9 @@ for int in [3, 5, 10, 30, 60]:
 
 rl = RunLSTM(df=df, col_time='Date', col_indVar='Qty(prev)', col_depVar='Qty')
 
-import matplotlib.pyplot as plt
 
 # Call the method and get the loss history
-loss_history = rl.predict_next_day(1)
+loss_history = rl.predict_next_day(5)
 
 # Plot the loss history
 plt.plot(loss_history)
