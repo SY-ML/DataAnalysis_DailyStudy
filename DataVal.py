@@ -15,7 +15,7 @@ def run_validation(path):
 
         ls_task = data_user['Task'].unique().tolist()
 
-        for row in data_user.iterrows():
+        # for row in data_user.iterrows():
 
 
 

@@ -84,9 +84,14 @@ class RunLSTM():
             data_std_train = scaler_train.fit_transform(data_input.reshape(-1, 1))
             data_std_target = scaler_target.fit_transform(data_target.reshape(-1, 1))
 
+            print(data_std_train)
+            print(data_std_target)
+
             # Create datasets
-            checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
-            early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+            checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='loss', mode='min')
+            early_stopping_callback = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
+            # checkpoint_callback = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
+            # early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 
             # Calculate the validation split ratio for the last row
             validation_split_ratio = min(1 / data_std_train.shape[0], 0.2)  # limit to 20% of the data
