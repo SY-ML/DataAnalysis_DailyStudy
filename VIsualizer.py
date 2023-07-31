@@ -19,7 +19,6 @@ def visualize_in_gantt_chart(df, col_xstart, col_xend, col_y, col_val):
 
 visualize_in_gantt_chart(df, 'Start', 'Finish', 'UserID', 'Activity')
 
-exit()
 # Create the subplots
 fig = make_subplots(rows=2, cols=1)
 
@@ -39,3 +38,7 @@ for user in df['UserID'].unique():
 
 fig.update_layout(height=600, width=800, title_text="Overall and User Timelines")
 fig.show()
+
+
+def visualize_in_boxplot(df, col):
+    return None
